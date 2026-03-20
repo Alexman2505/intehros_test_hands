@@ -1,0 +1,13 @@
+train: ./datasets/train/images
+val: ./datasets/valid/images
+# test: ./datasets/test/images
+
+nc: 1
+names: ['hands']
+
+roboflow:
+  workspace: emotions-detection
+  project: hand-segmentation-vloi1
+  version: 5
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/emotions-detection/hand-segmentation-vloi1/dataset/5

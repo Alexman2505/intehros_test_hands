@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hand Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .upload-form {
+            margin: 20px 0;
+        }
+        input[type=file] {
+            padding: 10px;
+            margin: 10px;
+        }
+        button {
+            padding: 10px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 30px;
+        }
+        .result img {
+            max-width: 100%;
+            border: 2px solid #333;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .found {
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .detections-table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .detections-table th {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px;
+            font-weight: bold;
+        }
+        .detections-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+            vertical-align: top;
+        }
+        .detections-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        .coord {
+            font-family: monospace;
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .score-badge {
+            background-color: #2196F3;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .contour-points {
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            background-color: #f8f8f8;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .contour-points span {
+            display: inline-block;
+            margin: 2px 4px;
+            padding: 2px 4px;
+            background-color: #e3f2fd;
+            border-radius: 3px;
+        }
+        .toggle-btn {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .toggle-btn:hover {
+            background-color: #f57c00;
+        }
+    </style>
+    <script>
+        function togglePoints(id) {
+            var element = document.getElementById('points-' + id);
+            var btn = document.getElementById('btn-' + id);
+            if (element.style.display === 'none') {
+                element.style.display = 'block';
+                btn.textContent = 'Скрыть точки';
+            } else {
+                element.style.display = 'none';
+                btn.textContent = 'Показать точки (' + element.getAttribute('data-count') + ')';
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Hand Detector</h1>
+    <p>Загрузи фото ".jpg" руки, и я найду её контур!</p>
+
+    <div class="container">
+        <form class="upload-form" method="post" enctype="multipart/form-data">
+            <input type="file" name="image" accept="image/*" required>
+            <br>
+            <button type="submit">🔍 Найти хвост</button>
+        </form>
+    </div>
+
+    {% if result_image %}
+    <div class="result">
+        <h2>Результат:</h2>
+        <p class="found">Найдено объектов: {{ found }}</p>
+
+        <img src="{{ result_image }}" alt="Результат">
+
+        {% if detections %}
+        <h3>Детальная информация:</h3>
+        <table class="detections-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Координаты углов</th>
+                    <th>Уверенность</th>
+                    <th>Точки контура (сегментация)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for det in detections %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        <span class="coord">({{ det.coords[0] }}, {{ det.coords[1] }})</span> —
+                        <span class="coord">({{ det.coords[2] }}, {{ det.coords[3] }})</span><br>
+                        <small style="color: #666;">лев.верх — прав.низ</small>
+                    </td>
+                    <td>
+                        <span class="score-badge">{{ "%.2f"|format(det.score) }}</span>
+                        <small>({{ "%.0f"|format(det.score*100) }}%)</small>
+                    </td>
+                    <td>
+                        {% if det.contour_points %}
+                            <div class="contour-points" id="points-{{ loop.index }}" style="display: none;" data-count="{{ det.contour_points|length }}">
+                                {% for point in det.contour_points %}
+                                    <span>({{ point[0] }}, {{ point[1] }})</span>
+                                {% endfor %}
+                            </div>
+                            <button class="toggle-btn" id="btn-{{ loop.index }}" onclick="togglePoints('{{ loop.index }}')">
+                                Показать точки ({{ det.contour_points|length }})
+                            </button>
+                        {% else %}
+                            <span style="color: #999;">Контур не найден</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endif %}
+</body>
+</html>
